@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="752" height="708" viewBox="0 0 752 708">
+<defs>
+  <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="14"/>
+  </filter>
+  <filter id="soft2" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="6"/>
+  </filter>
+  <filter id="blurBg" x="-10%" y="-10%" width="120%" height="120%">
+    <feGaussianBlur stdDeviation="18"/>
+  </filter>
+  
+    <linearGradient id="glassdark" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#2a2b30" stop-opacity="0.82"/>
+      <stop offset="55%" stop-color="#212227" stop-opacity="0.80"/>
+      <stop offset="100%" stop-color="#1b1c20" stop-opacity="0.86"/>
+    </linearGradient>
+    <linearGradient id="glasslight" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.88"/>
+      <stop offset="100%" stop-color="#f4f5f7" stop-opacity="0.86"/>
+    </linearGradient>
+    <linearGradient id="thumbA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3f6fb5"/>
+      <stop offset="55%" stop-color="#7a4fb0"/>
+      <stop offset="100%" stop-color="#e07a4f"/>
+    </linearGradient>
+    
+  
+  
+  
+  
+<linearGradient id="fadeA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.55"/></linearGradient>
+</defs>
+<rect x="0.0" y="0.0" width="752.0" height="708.0" rx="0" fill="#eceaea"/><rect x="60" y="68" width="632" height="592" rx="16" fill="rgba(0,0,0,0.13)" filter="url(#soft)"/><rect x="68" y="74" width="616" height="586" rx="16" fill="rgba(0,0,0,0.07)" filter="url(#soft)"/><g transform="translate(56,56)">
+
+<rect x="0.0" y="0.0" width="640.0" height="596.0" rx="12" fill="#ffffff"/><circle cx="25.1" cy="26.1" r="5.1" fill="none" stroke="rgba(0,0,0,0.55)" stroke-width="1.4"/><path d="M28.880000000000003 29.880000000000003 L33.64 34.64" fill="none" stroke="rgba(0,0,0,0.55)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><text x="46.0" y="32.0" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="14.5" font-weight="400" fill="rgba(0,0,0,0.56)" text-anchor="start">Search clipboard</text><rect x="0.0" y="54.0" width="640.0" height="1.0" rx="0" fill="rgba(0,0,0,0.07)"/><clipPath id="clipA"><rect x="0" y="55" width="640" height="497"/></clipPath><g clip-path="url(#clipA)"><rect x="305.7" y="236.2" width="19.3" height="19.3" rx="3.36" fill="none" stroke="rgba(0,0,0,0.56)" stroke-width="1.2"/><path d="M314.96 258.9 v5.880000000000001 h19.32 v-19.32 h-5.880000000000001" fill="none" stroke="rgba(0,0,0,0.56)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><text x="320.0" y="305.5" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="15" font-weight="600" fill="#1a1a1a" text-anchor="middle">Nothing copied yet</text><text x="320.0" y="329.5" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="12.5" font-weight="400" fill="rgba(0,0,0,0.55)" text-anchor="middle">Copy text, links or images and they’ll appear here.</text><text x="320.0" y="349.5" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="12.5" font-weight="400" fill="rgba(0,0,0,0.56)" text-anchor="middle">History stays on this device.</text></g><rect x="0.0" y="552.0" width="640.0" height="1.0" rx="0" fill="rgba(0,0,0,0.07)"/><rect x="16.0" y="564.0" width="32.0" height="17.0" rx="4" fill="rgba(0,0,0,0.055)" stroke="rgba(0,0,0,0.07)" stroke-width="1"/><text x="32.0" y="576.2" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="11" font-weight="600" fill="rgba(0,0,0,0.55)" text-anchor="middle">Esc</text><text x="53.0" y="576.0" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="10.5" font-weight="400" fill="rgba(0,0,0,0.55)" text-anchor="start">Close</text><rect x="93.5" y="564.0" width="16.0" height="17.0" rx="4" fill="rgba(0,0,0,0.055)" stroke="rgba(0,0,0,0.07)" stroke-width="1"/><text x="101.5" y="576.2" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="11" font-weight="600" fill="rgba(0,0,0,0.55)" text-anchor="middle">P</text><text x="114.5" y="576.0" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="10.5" font-weight="400" fill="rgba(0,0,0,0.55)" text-anchor="start">Privacy settings</text><text x="624.0" y="576.0" font-family="'DejaVu Sans','Noto Sans',sans-serif" font-size="10.5" font-weight="400" fill="rgba(0,0,0,0.56)" text-anchor="end">Nothing leaves this device</text>
+</g>
+</svg>
