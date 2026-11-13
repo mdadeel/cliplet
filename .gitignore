@@ -1,0 +1,15 @@
+# Design-workspace assets — research & design review docs, the mockup
+# gallery, and its HTML viewer. Local only; not shipped on GitHub.
+docs/
+previews/
+review.html
+review-inline.html
+
+# Python tooling
+__pycache__/
+*.pyc
+
+# Node tooling (tools/build.js deps)
+node_modules/
+
+.DS_Store
