@@ -1,0 +1,8 @@
+{
+  "uuid": "cliplet@review.local",
+  "name": "Cliplet",
+  "description": "Clipboard history and emoji picker in one popup. Review build: text-only capture, memory-only storage, no network.",
+  "shell-version": ["50"],
+  "url": "",
+  "settings-schema": "org.gnome.shell.extensions.cliplet"
+}

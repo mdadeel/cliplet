@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.cliplet" path="/org/gnome/shell/extensions/cliplet/">
+    <key name="enable-clipboard" type="b">
+      <default>true</default>
+      <summary>Enable the clipboard module</summary>
+      <description>When false, no clipboard signal is connected and no history is kept.</description>
+    </key>
+    <key name="enable-emoji" type="b">
+      <default>true</default>
+      <summary>Enable the emoji module</summary>
+    </key>
+    <key name="shortcut-clipboard" type="s">
+      <default>'&lt;Super&gt;v'</default>
+      <summary>Accelerator opening the popup in clipboard mode</summary>
+      <description>Empty string disables the accelerator. Presets carry a conflict report, never a silent takeover.</description>
+    </key>
+    <key name="shortcut-emoji" type="s">
+      <default>'&lt;Super&gt;period'</default>
+      <summary>Accelerator opening the popup in emoji mode</summary>
+    </key>
+    <key name="history-size" type="i">
+      <default>200</default>
+      <summary>Maximum number of history entries</summary>
+      <range min="50" max="2000"/>
+    </key>
+    <key name="text-cap-kb" type="i">
+      <default>100</default>
+      <summary>Per-item text capture cap in KiB</summary>
+      <range min="1" max="1024"/>
+    </key>
+    <key name="pause-capture" type="b">
+      <default>false</default>
+      <summary>Private mode: pause capture</summary>
+    </key>
+    <key name="emoji-tone" type="i">
+      <default>0</default>
+      <summary>Preferred skin tone, 0 (none) to 4 (darkest)</summary>
+      <range min="0" max="4"/>
+    </key>
+    <key name="emoji-auto-insert" type="b">
+      <default>true</default>
+      <summary>Clicking an emoji inserts at the cursor</summary>
+      <description>Guarded: refused when the focus target changed since the popup opened; falls back to copy.</description>
+    </key>
+    <key name="emoji-favourites" type="as">
+      <default>[]</default>
+      <summary>Favourited emoji codepoints, hex</summary>
+    </key>
+    <key name="emoji-recents" type="a{si}">
+      <default>{}</default>
+      <summary>Emoji use counts, keyed by hex codepoint</summary>
+    </key>
+    <key name="last-mode" type="s">
+      <default>'clipboard'</default>
+      <summary>Last popup mode: 'clipboard' or 'emoji'</summary>
+    </key>
+    <key name="enable-ocr" type="b">
+      <default>false</default>
+      <summary>Enable OCR (requires tesseract)</summary>
+      <description>Capture text from a screen region. Requires tesseract-ocr installed; everything runs locally.</description>
+    </key>
+    <key name="ocr-language" type="s">
+      <default>'eng'</default>
+      <summary>tesseract language for OCR</summary>
+    </key>
+    <key name="shortcut-ocr" type="s">
+      <default>''</default>
+      <summary>Accelerator starting screen-to-text capture</summary>
+    </key>
+    <key name="shortcut-jot" type="s">
+      <default>''</default>
+      <summary>Accelerator toggling the Jot Pad</summary>
+    </key>
+    <key name="compact-picker" type="b">
+      <default>false</default>
+      <summary>Compact quick-picker popup</summary>
+      <description>Smaller list-only panel without the keycap footer.</description>
+    </key>
+    <key name="enable-image-capture" type="b">
+      <default>false</default>
+      <summary>Capture image clipboard offers</summary>
+      <description>Memory-only, up to 8 MB per clip. Thumbnails and image paste.</description>
+    </key>
+    <key name="excluded-apps" type="as">
+      <default>[]</default>
+      <summary>Apps whose clips are never recorded</summary>
+      <description>Case-insensitive substrings matched against the copy source app name.</description>
+    </key>
+    <key name="persist-history" type="b">
+      <default>false</default>
+      <summary>Persist text history between sessions</summary>
+      <description>Opt-in. Saves text history to ~/.config/cliplet/history.json. Possible secrets and images are never saved; turning this off deletes the file.</description>
+    </key>
+    <key name="popup-x" type="i">
+      <default>-1</default>
+      <summary>Last dragged popup position X</summary>
+      <description>-1 places the popup automatically (near the pointer).</description>
+    </key>
+    <key name="popup-y" type="i">
+      <default>-1</default>
+      <summary>Last dragged popup position Y</summary>
+    </key>
+    <key name="released-bindings" type="a(ss)">
+      <default>[]</default>
+      <summary>Custom shortcuts Cliplet released to take an accelerator</summary>
+      <description>Pairs of (dconf path, previous binding). Custom keybindings Cliplet explicitly took over are kept here so Preferences can put them back untouched.</description>
+    </key>
+  </schema>
+</schemalist>
