@@ -1,13 +1,33 @@
+<div align="center">
+  <img src="assets/cliplet-logo.png" width="120" alt="Cliplet logo — stacked clipboard cards with a spark on a blue rounded square" />
+
 # Cliplet
 
-> Clipboard history and emoji picker in one popup — a GNOME Shell 50 extension.
+**Clipboard history & emoji picker in one popup — for GNOME Shell 50**
 
-Cliplet is a review build of a unified clipboard manager: text and image
-history, an emoji/kaomoji picker, snippets, text transforms, OCR and a jot
-pad, all reachable from one 520×540 popup shell (or the panel indicator)
-with zero network access.
+[![GNOME Shell 50](https://img.shields.io/badge/GNOME%20Shell-50-3584e4)](https://gnome.org)
+[![Session](https://img.shields.io/badge/session-Wayland-4a90d9)](https://wayland.freedesktop.org)
+[![Network](https://img.shields.io/badge/network-none-2ea44f)](#privacy--security)
+[![Language](https://img.shields.io/badge/language-GJS%20%28JavaScript%29-f09662)](https://gjs.guide)
 
-## Highlights
+</div>
+
+Cliplet is a **clipboard manager for GNOME and Linux** that keeps your **clipboard
+history** and an **emoji picker** in one fast, keyboard-first popup — with
+snippets, text transforms, MultiCopy collection, OCR and a jot pad built in.
+It runs entirely inside GNOME Shell as a **GJS extension on Wayland**:
+no daemons, no network access, no telemetry, and secrets from password
+managers are never stored.
+
+## Why Cliplet
+
+GNOME has been Wayland-only since GNOME 50, and clipboard managers that
+work outside the shell fight the compositor for every paste. Cliplet reads
+and pastes **from inside the shell** — history capture, emoji insert and
+paste injection are native, so there is no clipboard-watcher process, no
+paste proxy, and no per-app fragility.
+
+## Features
 
 - **One popup, two modes** — `[ Clipboard | Emoji ]` segmented switcher;
   search across both, keyboard-first navigation, pointer-complete.
@@ -30,22 +50,26 @@ with zero network access.
 - **OCR** — select a screen region, tesseract reads it into history
   (opt-in; requires `tesseract` installed locally; graceful install-hint
   toast when absent).
-- **Panel indicator** — open popup (both modes), pause capture, jot pad,
-  preferences; hidden entirely when all modules are off. Branded with the
-  Cliplet glyph (`extension/icons/`).
+- **Panel indicator** — top-bar entry point with the Cliplet glyph: open
+  popup (both modes), pause capture, jot pad, preferences; hidden entirely
+  when all modules are off.
 - **Shortcut conflict handling** — before binding, Cliplet names the owner
   of a held chord and offers an explicit, reversible takeover instead of
   failing silently.
 
-## Privacy
+## Keyboard shortcuts
 
-- **No network, ever.** No telemetry, no sync, no downloads.
-- Clipboard contents live in memory; secrets from password managers are
-  detected by app hint and never stored.
-- Disk persistence is opt-in (`persist-history`) and text-only — images and
-  masked secrets are never written. Turning it off deletes the file.
+| Action | Default | |
+|---|---|---|
+| Open clipboard history | `Super+V` | rebindable |
+| Open emoji picker | `Super+.` | rebindable |
+| OCR screen region | unbound | assign in Preferences |
+| Toggle Jot Pad | unbound | assign in Preferences |
 
-## Install
+All chords are rebindable in **Preferences → Shortcuts**, where a held chord
+is reported with its named owner and a take-over action.
+
+## Install (GNOME Shell 50 — Ubuntu 26.04, Fedora, Arch)
 
 ```sh
 # from a checkout of this repo
@@ -54,11 +78,41 @@ glib-compile-schemas extension/schemas/
 # then: re-login, enable "Cliplet" in the Extensions app
 ```
 
-Defaults: `<Super>v` opens clipboard, `<Super>period` opens emoji — both
-rebindable in Preferences → Shortcuts, where held chords are reported with
-a named owner and a take-over action. OCR and jot pad ship unbound; assign
-them in the same page. Requires GNOME Shell 50 (ESM extension,
-`settings-schema` metadata key).
+Requires GNOME Shell 50 (ESM extension, `settings-schema` metadata key).
+
+## Privacy & security
+
+- **No network, ever.** No telemetry, no sync, no downloads.
+- Clipboard contents live in memory; secrets from password managers are
+  detected by app hint and never stored.
+- Disk persistence is opt-in (`persist-history`) and text-only — images and
+  masked secrets are never written. Turning it off deletes the file.
+
+## FAQ
+
+**Does Cliplet work on X11?**
+No — and that is deliberate. GNOME 50 removed the X11 session, and reading
+the clipboard plus pasting into other apps can only be done reliably inside
+the GNOME Shell Wayland process, which is exactly where Cliplet lives.
+
+**Where is my clipboard data stored?**
+In memory, bounded by the history limit. Nothing touches the disk unless
+you enable `persist-history`, which writes text-only history (no images, no
+masked secrets) to `~/.config/cliplet/history.json`. Disabling it deletes
+the file.
+
+**Does Cliplet connect to the internet?**
+Never. There is no update check, no telemetry, no remote content.
+
+**Why does Cliplet warn that Super+V is already taken?**
+Stock GNOME and launcher apps can own the same chord. Cliplet names the
+owner (for example a custom launcher binding) and offers a one-click,
+reversible takeover instead of binding silently or failing quietly.
+
+**What does the OCR feature need?**
+The `tesseract` binary installed locally, plus the language packs you want
+(`ocr-language` setting, e.g. `eng`). OCR is opt-in and runs entirely on
+your machine.
 
 ## Repository layout
 
@@ -66,6 +120,7 @@ them in the same page. Requires GNOME Shell 50 (ESM extension,
 extension/   the GNOME Shell extension (ESM, gjs) — source of truth
 tools/       python + node pipeline that composes and rasterises the
              design mockups (previews are workspace assets, not shipped)
+assets/      brand art — README logo, social preview card
 ```
 
 Design-time assets — the mockup SVG/PNG gallery and the research & design
