@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Cliplet panel glyph: two stacked snippet cards + spark, 16px grid -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="none" stroke="#000" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- back card (only its exposed corner is drawn) -->
+    <path d="M7.8 2.8 H11.8 A1.6 1.6 0 0 1 13.4 4.4 V8.8 A1.6 1.6 0 0 1 11.8 10.4"/>
+    <!-- front card -->
+    <path d="M4.2 5.2 H9 A1.6 1.6 0 0 1 10.6 6.8 V11.6 A1.6 1.6 0 0 1 9 13.2 H4.2 A1.6 1.6 0 0 1 2.6 11.6 V6.8 A1.6 1.6 0 0 1 4.2 5.2 Z"/>
+  </g>
+  <!-- spark -->
+  <path d="M6.6 6.9 Q6.6 9.2 8.9 9.2 Q6.6 9.2 6.6 11.5 Q6.6 9.2 4.3 9.2 Q6.6 9.2 6.6 6.9 Z" fill="#000"/>
+</svg>

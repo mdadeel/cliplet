@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#57a0f0"/>
+      <stop offset="1" stop-color="#2a66c2"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.18" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- app-icon plate -->
+  <rect x="2" y="2" width="508" height="508" rx="112" fill="url(#bg)"/>
+  <rect x="2" y="2" width="508" height="508" rx="112" fill="url(#glow)"/>
+  <rect x="4" y="4" width="504" height="504" rx="110" fill="none"
+        stroke="#ffffff" stroke-opacity="0.25" stroke-width="4"/>
+
+  <!-- back card: the older snippet peeking out -->
+  <rect x="176" y="106" width="212" height="238" rx="38" fill="#ffffff" fill-opacity="0.42"/>
+
+  <!-- front card: the active snippet -->
+  <rect x="128" y="156" width="236" height="262" rx="38" fill="#ffffff"/>
+
+  <!-- spark cut into the front card -->
+  <path d="M246 210 Q246 286 322 286 Q246 286 246 362 Q246 286 170 286 Q246 286 246 210 Z"
+        fill="#2a66c2"/>
+
+  <!-- companion spark on the back card -->
+  <path d="M404 92 Q404 134 446 134 Q404 134 404 176 Q404 134 362 134 Q404 134 404 92 Z"
+        fill="#ffffff" fill-opacity="0.9"/>
+</svg>
