@@ -1,0 +1,355 @@
+/* Cliplet review build — Direction A "Continuation".
+   Tokens from docs/07 §7.6 and docs/08: opaque Adwaita surfaces, raised selection
+   with an accent bar (never accent fill), 56% faint-text floor, fixed 520x540 window.
+   The theme classes live on the SAME element as .cliplet-shell (popup.js
+   _applyTheme sets both on the panel), so the surface rule is a compound
+   selector — a descendant selector here can never match and the popup
+   renders with no background at all. */
+
+/* ---------- shell ---------- */
+.cliplet-shell {
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    /* St honours exactly ONE box-shadow per rule (a second layer is dropped
+       with "excess values" warnings) — one deep, wide shadow instead */
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.42);
+    padding: 0;
+}
+.cliplet-shell.cliplet-dark  { background-color: #242424; border-color: rgba(255, 255, 255, 0.1); }
+.cliplet-shell.cliplet-light { background-color: #ffffff; border-color: rgba(0, 0, 0, 0.1); }
+
+/* ---------- header ---------- */
+.cliplet-header {
+    padding: 10px 8px 10px 14px;
+    spacing: 6px;
+}
+.cliplet-grip {
+    font-size: 11px;
+    letter-spacing: 2px;
+    margin-right: 2px;
+}
+.cliplet-dark .cliplet-grip  { color: rgba(255, 255, 255, 0.35); }
+.cliplet-light .cliplet-grip { color: rgba(0, 0, 0, 0.30); }
+.cliplet-shell.cliplet-dark  .cliplet-header { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.cliplet-shell.cliplet-light .cliplet-header { border-bottom: 1px solid rgba(0, 0, 0, 0.08); }
+.cliplet-search-icon { icon_size: 16; }
+.cliplet-dark  .cliplet-search-icon { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-search-icon { color: rgba(0, 0, 0, 0.45); }
+/* the search line is quiet: no pill, just icon + text on the surface */
+.cliplet-search {
+    padding: 7px 10px 7px 4px;
+    font-size: 14px;
+    font-weight: 400;
+    selected-color: #ffffff;
+}
+.cliplet-dark .cliplet-search  { background-color: transparent; color: #ffffff; caret-color: #ffffff; }
+.cliplet-light .cliplet-search { background-color: transparent; color: #1a1a1a; caret-color: #1a1a1a; }
+
+.cliplet-segment { border-radius: 8px; }
+.cliplet-segment-button {
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    transition-duration: 120ms;
+}
+.cliplet-dark .cliplet-segment-button  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-segment-button { color: rgba(0, 0, 0, 0.56); }
+.cliplet-dark .cliplet-segment-button:hover  { background-color: rgba(255, 255, 255, 0.06); }
+.cliplet-light .cliplet-segment-button:hover { background-color: rgba(0, 0, 0, 0.05); }
+.cliplet-dark .cliplet-segment-button.cliplet-active  { background-color: rgba(255, 255, 255, 0.12); color: #ffffff; }
+.cliplet-light .cliplet-segment-button.cliplet-active { background-color: rgba(0, 0, 0, 0.08); color: #1a1a1a; }
+
+/* ---------- body / scroll ---------- */
+.cliplet-body { padding: 0; }
+.cliplet-viewport { padding: 2px 8px 6px 8px; }
+
+/* ---------- section labels ---------- */
+.cliplet-section-row {
+    padding: 8px 12px 4px 12px;
+    spacing: 8px;
+}
+.cliplet-section {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.15px;
+}
+.cliplet-dark .cliplet-section  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-section { color: rgba(0, 0, 0, 0.56); }
+.cliplet-section-meta {
+    font-size: 11px;
+    font-weight: 400;
+}
+.cliplet-dark  .cliplet-section-meta { color: rgba(255, 255, 255, 0.45); }
+.cliplet-light .cliplet-section-meta { color: rgba(0, 0, 0, 0.45); }
+.cliplet-section-hint {
+    font-size: 11px;
+    font-weight: 400;
+    padding-left: 4px;
+}
+.cliplet-dark  .cliplet-section-hint { color: rgba(255, 255, 255, 0.45); }
+.cliplet-light .cliplet-section-hint { color: rgba(0, 0, 0, 0.45); }
+
+/* ---------- rows ---------- */
+.cliplet-row {
+    border-radius: 6px;
+    padding: 5px 8px 5px 12px;
+    spacing: 12px;
+    margin: 1px 0;
+    transition-duration: 120ms;
+}
+/* one uniform height for every row (pinned, recent, snippet) — the list
+   never shifts when a pin marker appears */
+.cliplet-row-44 { min-height: 44px; }
+/* image entries: full-width preview tile with a caption bar */
+.cliplet-row-tile { padding: 6px 8px 6px 12px; }
+.cliplet-tile-thumb {
+    border-radius: 6px;
+    background-color: rgba(128, 128, 128, 0.12);
+}
+/* click ack: one beat brighter than selection, cleared after 60ms */
+.cliplet-dark .cliplet-row.cliplet-flash  { background-color: rgba(255, 255, 255, 0.24); }
+.cliplet-light .cliplet-row.cliplet-flash { background-color: rgba(0, 0, 0, 0.16); }
+.cliplet-dark .cliplet-row:hover  { background-color: rgba(255, 255, 255, 0.06); }
+.cliplet-light .cliplet-row:hover { background-color: rgba(0, 0, 0, 0.04); }
+/* Selection: raised surface + 2.5px accent bar. Never accent fill (3.77:1 fails AA). */
+.cliplet-dark .cliplet-row.cliplet-selected  { background-color: rgba(255, 255, 255, 0.13); }
+.cliplet-light .cliplet-row.cliplet-selected { background-color: rgba(0, 0, 0, 0.075); }
+/* hover on the selected row compounds, like Windows' panel */
+.cliplet-dark .cliplet-row.cliplet-selected:hover  { background-color: rgba(255, 255, 255, 0.17); }
+.cliplet-light .cliplet-row.cliplet-selected:hover { background-color: rgba(0, 0, 0, 0.1); }
+.cliplet-bar { width: 2.5px; border-radius: 2px; opacity: 0; }
+.cliplet-bar-h { height: 2.5px; border-radius: 2px; opacity: 0; }
+.cliplet-selected .cliplet-bar,
+.cliplet-selected .cliplet-bar-h { opacity: 1; }
+
+.cliplet-chip {
+    width: 24px; height: 24px;
+    border-radius: 5px;
+    padding: 4px;
+}
+.cliplet-dark .cliplet-chip  { background-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.75); }
+.cliplet-light .cliplet-chip { background-color: rgba(0, 0, 0, 0.06); color: rgba(0, 0, 0, 0.65); }
+
+.cliplet-row-title {
+    font-size: 13px;
+    font-weight: 500;
+}
+.cliplet-row-title.cliplet-mono {
+    font-family: 'JetBrains Mono', 'Fira Mono', 'DejaVu Sans Mono', 'Noto Sans Mono', monospace;
+    font-size: 12px;
+}
+.cliplet-row-meta {
+    font-size: 11px;
+    font-weight: 400;
+    padding-top: 2px;
+}
+.cliplet-dark .cliplet-row-title  { color: #ffffff; }
+.cliplet-dark .cliplet-row-meta   { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-row-title { color: #1a1a1a; }
+.cliplet-light .cliplet-row-meta  { color: rgba(0, 0, 0, 0.56); }
+
+.cliplet-masked {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2px;
+}
+.cliplet-pin-marker { opacity: 0.45; padding-right: 2px; }
+/* row is in the MultiCopy collection (Ctrl+click / Ctrl+D) */
+.cliplet-collect-marker { color: #2ec27e; padding-right: 2px; }
+.cliplet-quickpick {
+    font-size: 10.5px;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.cliplet-dark .cliplet-quickpick  { border: 1px solid rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.65); }
+.cliplet-light .cliplet-quickpick { border: 1px solid rgba(0, 0, 0, 0.25); color: rgba(0, 0, 0, 0.65); }
+
+/* hover actions: fade in over the row on pointer hover; the raised pill
+   background keeps them readable over the meta text underneath */
+.cliplet-row-actions {
+    opacity: 0;
+    spacing: 4px;
+    padding: 2px;
+    border-radius: 7px;
+}
+.cliplet-row:hover .cliplet-row-actions { opacity: 1; }
+.cliplet-row-action {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    padding: 4px;
+    transition-duration: 100ms;
+}
+.cliplet-dark .cliplet-row-action  { background-color: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.8); }
+.cliplet-light .cliplet-row-action { background-color: rgba(0, 0, 0, 0.06); color: rgba(0, 0, 0, 0.7); }
+.cliplet-dark .cliplet-row-action:hover  { background-color: rgba(255, 255, 255, 0.16); }
+.cliplet-light .cliplet-row-action:hover { background-color: rgba(0, 0, 0, 0.1); }
+
+/* ---------- empty state ---------- */
+.cliplet-empty {
+    font-size: 15px;
+    font-weight: 500;
+    padding-top: 8px;
+}
+.cliplet-empty-sub {
+    font-size: 12.5px;
+    font-weight: 400;
+    text-align: center;
+    padding-top: 6px;
+}
+.cliplet-dark .cliplet-empty-icon  { opacity: 0.3; color: #ffffff; }
+.cliplet-light .cliplet-empty-icon { opacity: 0.3; color: #1a1a1a; }
+.cliplet-dark .cliplet-empty  { color: #ffffff; }
+.cliplet-dark .cliplet-empty-sub  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-empty { color: #1a1a1a; }
+.cliplet-light .cliplet-empty-sub { color: rgba(0, 0, 0, 0.56); }
+
+/* ---------- fade ---------- */
+.cliplet-fade { height: 30px; }
+.cliplet-dark .cliplet-fade  { background-gradient-direction: vertical; background-gradient-start: rgba(36, 36, 36, 0); background-gradient-end: rgba(36, 36, 36, 0.92); }
+.cliplet-light .cliplet-fade { background-gradient-direction: vertical; background-gradient-start: rgba(255, 255, 255, 0); background-gradient-end: rgba(255, 255, 255, 0.92); }
+
+/* ---------- footer ---------- */
+.cliplet-footer {
+    padding: 8px 12px 8px 14px;
+    spacing: 10px;
+}
+.cliplet-shell.cliplet-dark  .cliplet-footer { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.cliplet-shell.cliplet-light .cliplet-footer { border-top: 1px solid rgba(0, 0, 0, 0.08); }
+.cliplet-footer-hint { font-size: 10.5px; font-weight: 400; spacing: 5px; }
+.cliplet-dark .cliplet-footer-hint  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-footer-hint { color: rgba(0, 0, 0, 0.56); }
+.cliplet-keycap {
+    font-size: 10.5px;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.cliplet-dark .cliplet-keycap  { border: 1px solid rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.8); }
+.cliplet-light .cliplet-keycap { border: 1px solid rgba(0, 0, 0, 0.25); color: rgba(0, 0, 0, 0.75); }
+.cliplet-count { font-size: 11px; font-weight: 400; }
+.cliplet-dark .cliplet-count  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-count { color: rgba(0, 0, 0, 0.56); }
+/* toast: overlays the keycap hints on the same footer line (BinLayout) —
+   the footer never changes height when a toast appears */
+.cliplet-toast {
+    font-size: 10.5px;
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+.cliplet-dark .cliplet-toast  { background-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.cliplet-light .cliplet-toast { background-color: rgba(0, 0, 0, 0.08); color: #1a1a1a; }
+.cliplet-overflow {
+    width: 24px; height: 24px;
+    border-radius: 5px;
+    padding: 4px;
+}
+.cliplet-dark .cliplet-overflow  { color: rgba(255, 255, 255, 0.7); }
+.cliplet-light .cliplet-overflow { color: rgba(0, 0, 0, 0.65); }
+.cliplet-dark .cliplet-overflow:hover  { background-color: rgba(255, 255, 255, 0.08); }
+.cliplet-light .cliplet-overflow:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+/* inline menu (no nested grab: lives inside the modal) */
+.cliplet-menu {
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.35);
+    padding: 6px;
+}
+.cliplet-dark .cliplet-menu  { background-color: #303030; border-color: rgba(255, 255, 255, 0.1); }
+.cliplet-light .cliplet-menu { background-color: #ffffff; border-color: rgba(0, 0, 0, 0.1); }
+.cliplet-menu-item {
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    text-align: left;
+    transition-duration: 100ms;
+}
+.cliplet-dark .cliplet-menu-item  { color: #ffffff; }
+.cliplet-light .cliplet-menu-item { color: #1a1a1a; }
+.cliplet-dark .cliplet-menu-item:hover  { background-color: rgba(255, 255, 255, 0.08); }
+.cliplet-light .cliplet-menu-item:hover { background-color: rgba(0, 0, 0, 0.05); }
+/* destructive item: red wash on hover, matching the accent scale */
+.cliplet-dark .cliplet-menu-item.cliplet-danger:hover  { background-color: rgba(230, 45, 66, 0.22); }
+.cliplet-light .cliplet-menu-item.cliplet-danger:hover { background-color: rgba(230, 45, 66, 0.14); }
+.cliplet-menu-header {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    padding: 6px 12px 2px 12px;
+}
+.cliplet-dark  .cliplet-menu-header { color: rgba(255, 255, 255, 0.45); }
+.cliplet-light .cliplet-menu-header { color: rgba(0, 0, 0, 0.45); }
+
+/* ---------- emoji mode ---------- */
+.cliplet-rail { padding: 4px 8px 2px 8px; spacing: 3px; }
+/* icon-only category rail: glyph only, labels live in accessible_name */
+.cliplet-rail-button {
+    border-radius: 8px;
+    padding: 5px 4px 4px 4px;
+    font-size: 8.5px;
+    font-weight: 500;
+    transition-duration: 120ms;
+}
+.cliplet-rail-glyph { font-size: 20px; font-family: 'Noto Color Emoji'; }
+.cliplet-dark .cliplet-rail-button  { color: rgba(255, 255, 255, 0.56); }
+.cliplet-light .cliplet-rail-button { color: rgba(0, 0, 0, 0.56); }
+.cliplet-dark .cliplet-rail-button:hover  { background-color: rgba(255, 255, 255, 0.06); }
+.cliplet-light .cliplet-rail-button:hover { background-color: rgba(0, 0, 0, 0.04); }
+.cliplet-dark .cliplet-rail-button.cliplet-active  { background-color: rgba(255, 255, 255, 0.12); color: #ffffff; }
+.cliplet-light .cliplet-rail-button.cliplet-active { background-color: rgba(0, 0, 0, 0.08); color: #1a1a1a; }
+
+.cliplet-recents-plate { border-radius: 10px; padding: 6px 8px; }
+.cliplet-dark .cliplet-recents-plate  { background-color: rgba(255, 255, 255, 0.05); }
+.cliplet-light .cliplet-recents-plate { background-color: rgba(0, 0, 0, 0.03); }
+
+.cliplet-grid-cell {
+    width: 45px; height: 45px;
+    border-radius: 8px;
+    font-size: 30px;
+    font-family: 'Noto Color Emoji';
+    transition-duration: 100ms;
+}
+.cliplet-grid-cell-small { font-size: 26px; }
+/* kaomoji / text characters: text font, smaller size, wraps nothing */
+.cliplet-grid-cell-text {
+    font-family: 'Noto Sans', 'Noto Sans CJK SC', 'DejaVu Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+}
+.cliplet-dark .cliplet-grid-cell:hover  { background-color: rgba(255, 255, 255, 0.08); }
+.cliplet-light .cliplet-grid-cell:hover { background-color: rgba(0, 0, 0, 0.05); }
+.cliplet-star {
+    font-size: 9px;
+    color: #f5c211;
+    padding: 0 2px;
+}
+
+/* tone popover */
+.cliplet-tone-pop {
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.35);
+    padding: 8px;
+    spacing: 8px;
+}
+.cliplet-dark .cliplet-tone-pop  { background-color: #303030; border-color: rgba(255, 255, 255, 0.1); }
+.cliplet-light .cliplet-tone-pop { background-color: #ffffff; border-color: rgba(0, 0, 0, 0.1); }
+.cliplet-tone-swatch {
+    width: 30px; height: 30px;
+    border-radius: 15px;
+    font-size: 22px;
+    font-family: 'Noto Color Emoji';
+}
+/* persistent tone strip at the end of the category rail */
+.cliplet-tone-chip {
+    width: 24px; height: 24px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: 'Noto Color Emoji';
+    transition-duration: 100ms;
+}
+.cliplet-dark .cliplet-tone-chip  { background-color: rgba(255, 255, 255, 0.08); }
+.cliplet-light .cliplet-tone-chip { background-color: rgba(0, 0, 0, 0.06); }
+.cliplet-dark .cliplet-tone-chip:hover  { background-color: rgba(255, 255, 255, 0.16); }
+.cliplet-light .cliplet-tone-chip:hover { background-color: rgba(0, 0, 0, 0.1); }
