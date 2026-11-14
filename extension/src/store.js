@@ -39,6 +39,7 @@ export class MemoryStore {
         if (existing && existing.pinned) {
             existing.time = time;
             existing.app = app || existing.app;
+            existing._hay = undefined;
             return existing;
         }
         if (existing) {
@@ -47,6 +48,7 @@ export class MemoryStore {
             existing.time = time;
             existing.app = app || existing.app;
             existing.masked = masked;
+            existing._hay = undefined;   // app is part of the search haystack
             this._recent.unshift(existing);
             return existing;
         }
@@ -164,6 +166,7 @@ export class MemoryStore {
     _retext(entry, text) {
         this._byHash.delete(entry.hash);
         entry.text = text;
+        entry._hay = undefined;
         entry.hash = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, text, -1)
             || String(text.length);
         const other = this._byHash.get(entry.hash);
@@ -197,7 +200,13 @@ export class MemoryStore {
         if (!q) return { pins: [...this._pins], recent: [...this._recent] };
         const tokens = q.split(/\s+/);
         const match = (e) => {
-            const hay = (e.text + '\n' + e.app).toLowerCase();
+            // The folded haystack is cached on the entry: clips are capped at
+            // `text-cap-kb` (100 KiB by default), so lowercasing all 200 of
+            // them on every keystroke allocated megabytes per keypress. It is
+            // invalidated wherever text or app change.
+            if (e._hay === undefined)
+                e._hay = `${e.text}\n${e.app || ''}`.toLowerCase();
+            const hay = e._hay;
             return tokens.every((t) => hay.includes(t));
         };
         return {

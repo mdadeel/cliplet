@@ -13,6 +13,7 @@ export class Snippets {
         const dir = GLib.build_filenamev([GLib.get_user_config_dir(), 'cliplet']);
         this._path = GLib.build_filenamev([dir, 'snippets.json']);
         this._entries = [];
+        this._loadedMtime = -1;
         this._load();
     }
 
@@ -21,6 +22,21 @@ export class Snippets {
     }
 
     _load() {
+        // Guarded by mtime: the popup calls search() on every keystroke, and
+        // the prefs window (a separate process) is the only other writer —
+        // re-reading and re-parsing the file per keypress was a synchronous
+        // disk read in the shell's main loop for nothing.
+        try {
+            const info = Gio.File.new_for_path(this._path).query_info(
+                'time::modified', Gio.FileQueryInfoFlags.NONE, null);
+            const mtime = info.get_modification_date_time().to_unix();
+            if (this._loadedMtime === mtime)
+                return;
+            this._loadedMtime = mtime;
+        } catch {
+            // missing/unreadable file: keep what we have and try again later
+            return;
+        }
         try {
             const [, bytes] = GLib.file_get_contents(this._path);
             const parsed = JSON.parse(new TextDecoder().decode(bytes));
@@ -72,11 +88,11 @@ export class Snippets {
 
     // Tokens matched against name + text, same style as the history search.
     search(query) {
-        this._load();   // cross-process: prefs may have edited the file
         const q = query.trim().toLowerCase();
-        if (!q) return this.list();
+        const all = this.list();   // cross-process: prefs may have edited the file
+        if (!q) return all;
         const tokens = q.split(/\s+/);
-        return this.list().filter((s) => {
+        return all.filter((s) => {
             const hay = (s.name + '\n' + s.text).toLowerCase();
             return tokens.every((t) => hay.includes(t));
         });
