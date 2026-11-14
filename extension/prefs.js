@@ -287,7 +287,7 @@ export default class ClipletPreferences extends ExtensionPreferences {
             model.append(name);
         }
         tone.model = model;
-        // selected maps 0..5; setting is 0..4 with 0 = default (no modifier)
+        // selected maps 0..5 straight onto emoji-tone (0 = default, no modifier)
         tone.set_selected(this._settings.get_int('emoji-tone'));
         tone.connect('notify::selected', () => {
             this._settings.set_int('emoji-tone', tone.selected);
