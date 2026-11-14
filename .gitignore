@@ -13,3 +13,9 @@ __pycache__/
 node_modules/
 
 .DS_Store
+
+# GSettings build artefact — regenerate locally:
+#   glib-compile-schemas extension/schemas/
+# Committing it is how a stale schema silently overrides the XML (the
+# emoji-tone range fix would be undone by the old binary).
+extension/schemas/gschemas.compiled
