@@ -342,10 +342,13 @@
     font-family: 'Noto Color Emoji';
 }
 /* persistent tone strip at the end of the category rail */
+/* Six chips (default + the five Unicode modifiers) must fit the 520 px panel
+   next to the 11-button category rail: 22 px + 3 px spacing keeps ~15 px of
+   slack instead of overflowing by a pixel. */
 .cliplet-tone-chip {
-    width: 24px; height: 24px;
-    border-radius: 12px;
-    font-size: 15px;
+    width: 22px; height: 22px;
+    border-radius: 11px;
+    font-size: 14px;
     font-family: 'Noto Color Emoji';
     transition-duration: 100ms;
 }

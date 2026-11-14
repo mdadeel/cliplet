@@ -25,11 +25,17 @@ const FOOTER_H = 44;
 const BODY_H = PANEL_H - HEADER_H - FOOTER_H;
 const FADE_H = 30;
 const GRID_COLS = 10;
+const GRID_ROW_H = 45;           // must match .cliplet-grid-cell in stylesheet.css
+// Lazy grid: only ~8 rows are ever on screen, but a wide search matches up
+// to ~1500 emoji. Build one viewport synchronously, the rest in idle slices.
+const GRID_SYNC_ROWS = 9;
+const GRID_CHUNK_ROWS = 12;
+const GRID_OVERSCAN_ROWS = 3;
+const GRID_CACHE_CELLS = 2400;   // live cached cell actors across all grids
 const SEARCH_DEBOUNCE_MS = 40;   // spec: 30–50 ms
 const OPEN_ANIM_MS = 150;
 const CLOSE_ANIM_MS = 100;
 const TOAST_MS = 2600;
-const GRID_CACHE_MAX = 12;       // LRU cap: each entry holds ~160 buttons
 
 const ACCENTS = {
     blue: '#3584e4', teal: '#2190a4', green: '#3a944a', yellow: '#c88800',
@@ -205,7 +211,11 @@ export class PopupShell {
         this._category = 'smileys';
         this._emojiSel = 0;
         this._gridEntries = [];
-        this._gridCache = new Map();
+        this._gridCache = new Map();  // key -> finished build {entries, rows, cells}
+        this._gridBuild = null;       // in-flight lazy build, if any
+        this._gridCells = [];         // index -> cell actor, grown with the build
+        this._toneShown = -1;         // last tone the strip was painted for
+        this._toneAccent = null;
         this._rowPool = new Map();      // key -> built row actor (search reuse)
         this._lastRowActor = null;      // O(1) list selection repaint
         this._lastSelectedCell = null;  // O(1) grid selection repaint
@@ -347,11 +357,13 @@ export class PopupShell {
             const [, dy] = event.get_scroll_delta();
             if (dy === 0) return Clutter.EVENT_STOP;
             adj.value = this._clampScroll(adj, adj.value + dy * 64);
+            this._ensureGridRowsForScroll(adj);
             return Clutter.EVENT_STOP;
         }
         const step = dir === Clutter.ScrollDirection.DOWN ? 1 : dir === Clutter.ScrollDirection.UP ? -1 : 0;
         if (!step) return Clutter.EVENT_PROPAGATE;
         adj.value = this._clampScroll(adj, adj.value + step * 78);   // 1.5 rows
+        this._ensureGridRowsForScroll(adj);
         return Clutter.EVENT_STOP;
     }
 
@@ -454,7 +466,7 @@ export class PopupShell {
         // top-level picker in Windows' panel, not a buried menu item
         const railSpacer = new St.Widget({ x_expand: true });
         this._rail.add_child(railSpacer);
-        this._toneStrip = new St.BoxLayout({ style: 'spacing: 4px;' });
+        this._toneStrip = new St.BoxLayout({ style: 'spacing: 3px;' });
         this._rail.add_child(this._toneStrip);
         this._buildToneStrip();
 
@@ -761,9 +773,11 @@ export class PopupShell {
             this._root.destroy();
             this._built = false;
             // detached cached actors are not under _root: free them too
-            for (const rows of this._gridCache.values())
-                for (const r of rows) r.destroy();
+            this._cancelGridBuild();
+            for (const build of this._gridCache.values())
+                this._destroyGridRows(build);
             this._gridCache.clear();
+            this._gridCells = [];
             for (const row of this._rowPool.values()) row.destroy();
             this._rowPool.clear();
             this._lastRowActor = null;
@@ -786,6 +800,7 @@ export class PopupShell {
         this._accent = ACCENTS[accentKey] || ACCENTS.blue;
         this._panel.style_class = `cliplet-shell ${dark ? 'cliplet-dark' : 'cliplet-light'}`;
         this._dark = dark;
+        this._toneAccent = null;   // accent surfaces bake the colour in: repaint
     }
 
     _onThemeChanged() {
@@ -797,6 +812,7 @@ export class PopupShell {
         for (const row of this._rowPool.values())
             row._accentBar?.set_style(`background-color: ${this._accent};`);
         if (this._isOpen) {
+            this._toneAccent = null;      // accent moved: force the strip repaint
             this._updateToneStrip();
             this._selectEmoji(this._emojiSel, { scroll: false });
             this._setMode(this._mode);
@@ -1270,6 +1286,18 @@ export class PopupShell {
     }
 
     // ---------- emoji grid ----------
+    //
+    // The grid is built LAZILY. A full build materialises one St.Button plus
+    // one St.Label per match — up to ~1500 actors for a single-letter search,
+    // of which ~80 are ever on screen. Building all of them before the first
+    // paint is what made typing in the picker feel dead: neither Windows, nor
+    // macOS, nor GNOME's own emoji pager does it (js/ui/keyboard.js builds
+    // exactly nCols*nRows keys per page, and only for the page in view).
+    //
+    // Contract: `_gridEntries` is always complete (counts, the section header
+    // and keyboard navigation read it), while `_gridCells` grows to cover what
+    // is actually on screen. Anything addressing a cell by index goes through
+    // _ensureGridRows(), which builds forward on demand.
 
     _refreshEmoji() {
         if (!this._built) return;
@@ -1281,22 +1309,34 @@ export class PopupShell {
             if (active) btn.add_style_class_name('cliplet-active');
             else btn.remove_style_class_name('cliplet-active');
         }
-        this._updateToneStrip();
-        const favs = this._emoji.favourites();
-        const recents = this._emoji.recents();
-        this._recentsPlate.visible = !searching && (favs.length > 0 || recents.length > 0);
 
-        // favourites band (mockup 11: above recents, starred cells)
-        this._favRow.remove_all_children();
-        for (const entry of favs) {
-            this._favRow.add_child(this._makeCell(entry, { small: true, fixed: true }));
-        }
-        this._favSection.visible = !searching && favs.length > 0;
+        // ONE settings snapshot for the whole build. _makeCell used to read
+        // `emoji-tone` and `emoji-favourites` per cell — two GSettings calls
+        // and one array allocation per emoji, ~3300 of them for a wide search.
+        const tone = this._emoji.tone;
+        const favSet = this._emoji.favouriteSet();
+        this._updateToneStrip(tone);
 
-        // recents band
-        this._recentsRow.remove_all_children();
-        for (const entry of recents) {
-            this._recentsRow.add_child(this._makeCell(entry, { small: true, fixed: true }));
+        // The bands are browse-mode chrome: rebuilding them on every
+        // keystroke of a search only to keep them hidden built actors for
+        // nothing.
+        this._favSection.visible = false;
+        this._recentsPlate.visible = false;
+        if (!searching) {
+            const favs = this._emoji.favourites();
+            const recents = this._emoji.recents();
+
+            // favourites band (mockup 11: above recents, starred cells)
+            this._favRow.remove_all_children();
+            for (const entry of favs)
+                this._favRow.add_child(this._makeCell(entry, { small: true, fixed: true, tone, favSet }));
+            this._favSection.visible = favs.length > 0;
+
+            // recents band
+            this._recentsRow.remove_all_children();
+            for (const entry of recents)
+                this._recentsRow.add_child(this._makeCell(entry, { small: true, fixed: true, tone, favSet }));
+            this._recentsPlate.visible = favs.length > 0 || recents.length > 0;
         }
 
         // The scroll's minimum equals its content minimum (hundreds of px for
@@ -1315,47 +1355,11 @@ export class PopupShell {
         this._gridEntries = searching ? this._emoji.search(query)
             : (this._emoji.categories.find((c) => c.id === this._category)?.emoji || []);
 
-        // Browse mode caches built rows per category: rebuilding ~160 buttons
-        // on every category revisit was the visible "too slow" cost.
-        // LRU-capped: each cached category holds ~160 button actors.
-        const cacheKey = searching ? `q:${query}` : `cat:${this._category}`;
-        let rows = this._gridCache.get(cacheKey);
-        if (rows) {
-            this._gridCache.delete(cacheKey);   // refresh insertion order
-            this._gridCache.set(cacheKey, rows);
-        } else {
-            rows = [];
-            let row = null;
-            this._gridEntries.forEach((entry, i) => {
-                if (i % GRID_COLS === 0) {
-                    row = new St.BoxLayout({ style: 'spacing: 0px;' });
-                    rows.push(row);
-                }
-                row.add_child(this._makeCell(entry, { small: false, fixed: false, index: i }));
-            });
-            // a short last row reads as broken when left-aligned — centre it
-            const last = rows[rows.length - 1];
-            if (rows.length > 1 && last) {
-                const orphan = this._gridEntries.length % GRID_COLS;
-                if (orphan > 0) {
-                    last.set_style(`padding-left: ${Math.round((GRID_COLS - orphan) * 45 / 2)}px;`);
-                }
-            }
-            this._gridCache.set(cacheKey, rows);
-            while (this._gridCache.size > GRID_CACHE_MAX) {
-                const [oldestKey, oldRows] = this._gridCache.entries().next().value;
-                this._gridCache.delete(oldestKey);
-                for (const r of oldRows) {
-                    for (const cell of r.get_children()) {
-                        if (this._lastSelectedCell === cell) this._lastSelectedCell = null;
-                        cell.destroy();
-                    }
-                    r.destroy();
-                }
-            }
-        }
-        this._grid.remove_all_children();
-        for (const r of rows) this._grid.add_child(r);
+        // The tone is part of the cache key: every cell bakes its glyph in,
+        // so a tone change must not reuse cells built for another tone.
+        this._mountGrid(`${searching ? 'q' : 'cat'}:${tone}:${searching ? query : this._category}`,
+            tone, favSet);
+
         if (!this._gridEntries.length && searching) {
             const none = new St.Label({
                 text: 'No emoji match.',
@@ -1384,11 +1388,153 @@ export class PopupShell {
                 ? 'Insert at cursor' : 'Copy on click';
         }
 
-        this._emojiSel = Math.max(0, Math.min(this._gridEntries.length - 1, this._emojiSel));
+        const sel = Number.isFinite(this._emojiSel) ? this._emojiSel : 0;
+        this._emojiSel = Math.max(0, Math.min(this._gridEntries.length - 1, sel));
         this._selectEmoji(this._emojiSel, { scroll: false });
     }
 
-    _makeCell(entry, { small, fixed, index }) {
+    // Attach the rows for `key` — from the cache when an earlier build for
+    // that key finished, otherwise as a chunked build: one viewport now, the
+    // rest in idle slices, so the panel paints and answers keys immediately.
+    _mountGrid(key, tone, favSet) {
+        this._cancelGridBuild();
+        this._grid.remove_all_children();
+
+        const cached = this._gridCache.get(key);
+        if (cached) {
+            this._gridCache.delete(key);          // refresh LRU order
+            this._gridCache.set(key, cached);
+            this._gridEntries = cached.entries;   // the cells were built from this array
+            this._gridCells = cached.cells;
+            for (const row of cached.rows) this._grid.add_child(row);
+            return;
+        }
+
+        const entries = this._gridEntries;
+        const build = {
+            key,
+            entries,
+            tone,
+            favSet,
+            rows: [],
+            cells: [],
+            built: 0,
+            idleId: 0,
+            total: Math.ceil(entries.length / GRID_COLS),
+        };
+        this._gridBuild = build;
+        this._gridCells = build.cells;
+        this._buildGridRows(build, GRID_SYNC_ROWS);
+        if (build.built >= build.total) {
+            this._finishGridBuild(build);
+            return;
+        }
+        build.idleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            build.idleId = 0;
+            if (this._gridBuild !== build)
+                return GLib.SOURCE_REMOVE;        // superseded — already torn down
+            this._buildGridRows(build, GRID_CHUNK_ROWS);
+            if (build.built >= build.total) {
+                this._finishGridBuild(build);
+                return GLib.SOURCE_REMOVE;
+            }
+            return GLib.SOURCE_KEEP;
+        });
+    }
+
+    _buildGridRows(build, nRows) {
+        const to = Math.min(build.total, build.built + nRows);
+        for (let r = build.built; r < to; r++) {
+            const row = new St.BoxLayout({ style: 'spacing: 0px;' });
+            const base = r * GRID_COLS;
+            const n = Math.min(GRID_COLS, build.entries.length - base);
+            for (let c = 0; c < n; c++) {
+                const i = base + c;
+                const cell = this._makeCell(build.entries[i], {
+                    small: false, fixed: false, index: i,
+                    tone: build.tone, favSet: build.favSet,
+                });
+                row.add_child(cell);
+                build.cells[i] = cell;
+            }
+            build.rows.push(row);
+            this._grid.add_child(row);
+        }
+        build.built = to;
+    }
+
+    _finishGridBuild(build) {
+        if (this._gridBuild === build)
+            this._gridBuild = null;
+        // a short last row reads as broken when left-aligned — centre it
+        const orphan = build.entries.length % GRID_COLS;
+        const last = build.rows[build.rows.length - 1];
+        if (build.rows.length > 1 && last && orphan > 0)
+            last.set_style(`padding-left: ${Math.round((GRID_COLS - orphan) * GRID_ROW_H / 2)}px;`);
+        this._gridCache.set(build.key, build);
+        this._pruneGridCache();
+    }
+
+    // Build forward until `rowIndex` exists: keyboard navigation, selection
+    // and scrolling all address rows the idle slices have not reached yet.
+    _ensureGridRows(rowIndex) {
+        const build = this._gridBuild;
+        if (!build || build.built > rowIndex) return;
+        this._buildGridRows(build, rowIndex + 1 - build.built + GRID_OVERSCAN_ROWS);
+        if (build.built >= build.total)
+            this._finishGridBuild(build);
+    }
+
+    _ensureGridRowsForScroll(adj) {
+        if (this._mode !== 'emoji' || !this._gridBuild) return;
+        const bottomRow = Math.ceil((adj.value + adj.page_size) / GRID_ROW_H);
+        this._ensureGridRows(bottomRow + GRID_OVERSCAN_ROWS);
+    }
+
+    _cancelGridBuild() {
+        const build = this._gridBuild;
+        this._gridBuild = null;
+        if (!build) return;
+        if (build.idleId) {
+            GLib.source_remove(build.idleId);
+            build.idleId = 0;
+        }
+        // A partial build is never cached: it is superseded, so free it.
+        if (build.built < build.total)
+            this._destroyGridRows(build);
+    }
+
+    _destroyGridRows(build) {
+        for (const cell of build.cells) {
+            if (!cell) continue;
+            if (this._lastSelectedCell === cell) this._lastSelectedCell = null;
+            try { cell.destroy(); } catch { /* already went with the root */ }
+        }
+        for (const row of build.rows) {
+            try { row.destroy(); } catch { /* already went with the root */ }
+        }
+        build.cells = [];
+        build.rows = [];
+        build.built = 0;
+    }
+
+    // Budget is CELLS, not entries: one cached single-letter search holds
+    // ~1500 actors, and the old 12-entry cap could therefore pin ~16k live
+    // buttons. Oldest first, and never the grid currently on screen.
+    _pruneGridCache() {
+        let total = 0;
+        for (const b of this._gridCache.values())
+            total += b.cells.length;
+        while (total > GRID_CACHE_CELLS && this._gridCache.size > 1) {
+            const [key, old] = this._gridCache.entries().next().value;
+            if (old.cells === this._gridCells) break;   // on screen — keep it
+            this._gridCache.delete(key);
+            total -= old.cells.length;
+            this._destroyGridRows(old);
+        }
+    }
+
+    _makeCell(entry, { small, fixed, index = -1, tone = null, favSet = null }) {
         // text characters (kaomoji, symbols) render in the text font at a
         // smaller size — the colour-emoji font would box them
         const txt = !!entry.txt;
@@ -1396,14 +1542,15 @@ export class PopupShell {
             style_class: `cliplet-grid-cell${small ? ' cliplet-grid-cell-small' : ''}${txt ? ' cliplet-grid-cell-text' : ''}`,
             reactive: true,
         });
-        const glyph = this._emoji.glyph(entry);
+        const glyph = this._emoji.glyph(entry, tone);
         btn.child = new St.Label({
             text: glyph,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
         btn.accessible_name = entry.n || glyph;
-        if (this._emoji.isFavourite(entry)) this._addStar(btn);
+        const fav = favSet ? favSet.has(entry.cp) : this._emoji.isFavourite(entry);
+        if (fav) this._addStar(btn);
 
         if (!fixed) btn.clipletIndex = index;
         btn.clipletEntry = entry;
@@ -1412,7 +1559,11 @@ export class PopupShell {
         // old 220 ms deferral made every insert feel dead and merged fast
         // clicks into arbitrary glyph strings.
         btn.connect('clicked', () => {
-            this._selectEmoji(btn.clipletIndex, { scroll: false });
+            // Fixed cells (the favourites/recents bands) have no grid index.
+            // Selecting with `undefined` poisoned `_emojiSel` into NaN on the
+            // next clamp, after which arrow keys and Enter did nothing at all.
+            if (!fixed)
+                this._selectEmoji(index, { scroll: false });
             this._activateCell(entry);
         });
         btn._onRightClick = (actor, event) => {
@@ -1446,29 +1597,41 @@ export class PopupShell {
 
     _toggleFavourite(entry) {
         const added = this._emoji.toggleFavourite(entry);
-        for (const child of this._grid.get_children()) {
-            if (child.clipletEntry === entry) {
-                if (added) this._addStar(child);
-                else this._removeStar(child);
+        this._syncStars(entry.cp, added);
+    }
+
+    // Stars live on cells, and cells live in the mounted grid, in cached
+    // (detached) grids, and in the two bands. The previous version walked
+    // `_grid`'s children — which are ROWS, not cells — so a right-click
+    // favourite never repainted its star at all.
+    _syncStars(cp, on) {
+        const visit = (cells) => {
+            for (const cell of cells) {
+                if (cell?.clipletEntry?.cp !== cp) continue;
+                if (on) this._addStar(cell);
+                else this._removeStar(cell);
             }
-        }
+        };
+        for (const row of this._grid.get_children())
+            visit(row.get_children());
+        for (const build of this._gridCache.values())
+            visit(build.cells);
+        visit(this._favRow.get_children());
+        visit(this._recentsRow.get_children());
     }
 
     _selectEmoji(index, { scroll = true } = {}) {
+        if (!Number.isInteger(index)) index = 0;   // never let NaN/undefined in
         this._emojiSel = index;
-        if (!this._gridEntries[index]) return;
-        // O(1) repaint: only the previously selected cell loses its ring.
+        const entry = this._gridEntries[index];
+        if (!entry) return;
+        const rowIndex = Math.floor(index / GRID_COLS);
+        this._ensureGridRows(rowIndex);
+        // O(1) now in fact, not just in the comment: the cell list is indexed
+        // in step with the build. The old version walked every row and every
+        // cell of the grid (up to ~1500 GI reads) on each arrow key.
+        const next = this._gridCells[index] || null;
         const prev = this._lastSelectedCell;
-        let next = null;
-        for (const row of this._grid.get_children()) {
-            for (const cell of row.get_children()) {
-                if (cell.clipletIndex === index) {
-                    next = cell;
-                    break;
-                }
-            }
-            if (next) break;
-        }
         if (prev !== next) {
             if (prev) prev.set_style(null);
             if (next) next.set_style(`border: 2px solid ${this._accent};`);
@@ -1477,22 +1640,22 @@ export class PopupShell {
         // live name readout (Windows shows the hovered emoji's name)
         const searching = this._entry.text.trim().length > 0;
         if (!searching) {
-            const entry = this._gridEntries[index];
             this._gridSectionMeta.text =
                 `${entry.n} · ${index + 1}/${this._gridEntries.length}`;
         }
         if (scroll) {
             const adj = this._gridScroll.vadjustment;
-            const rowIndex = Math.floor(index / GRID_COLS);
-            const y = rowIndex * 45;
+            const y = rowIndex * GRID_ROW_H;
             const visible = adj.page_size;
             if (y < adj.value) adj.value = y;
-            else if (y + 45 > adj.value + visible) adj.value = y + 45 - visible;
+            else if (y + GRID_ROW_H > adj.value + visible) adj.value = y + GRID_ROW_H - visible;
+            this._ensureGridRowsForScroll(adj);
         }
     }
 
     _moveEmoji(deltaRow, deltaCol) {
         if (!this._gridEntries.length) return;
+        if (!Number.isFinite(this._emojiSel)) this._emojiSel = 0;
         let index = this._emojiSel;
         if (deltaRow) index += deltaRow * GRID_COLS;
         if (deltaCol) index += deltaCol;
@@ -1647,7 +1810,7 @@ export class PopupShell {
     // Pointer path: insert immediately (see _makeCell).
     _activateCell(entry) {
         this._emoji.bumpUse(entry);
-        const glyph = this._emoji.glyph(entry);
+        const glyph = this._emoji.glyph(entry, this._emoji.tone);
         const autoInsert = this._settings.get_boolean('emoji-auto-insert');
         if (autoInsert) {
             this.close(() => this._injector.paste({ text: glyph }, this._recorded));
@@ -1660,7 +1823,7 @@ export class PopupShell {
 
     _copyCell(entry) {
         this._emoji.bumpUse(entry);
-        const glyph = this._emoji.glyph(entry);
+        const glyph = this._emoji.glyph(entry, this._emoji.tone);
         this._capture.markInternalSet();
         St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, glyph);
         this.close(() => Main.notify('Cliplet', 'Copied.'));
@@ -1674,7 +1837,7 @@ export class PopupShell {
         this._toneStrip.remove_all_children();
         this._toneChips = [];
         const sample = { cp: '1F44B', t: 1 };
-        for (let tone = 0; tone <= 4; tone++) {
+        for (let tone = 0; tone <= 5; tone++) {   // 0 = default, 1..5 = U+1F3FB..U+1F3FF
             const chip = new St.Button({
                 style_class: 'cliplet-tone-chip',
                 child: new St.Label({
@@ -1695,9 +1858,15 @@ export class PopupShell {
         this._updateToneStrip();
     }
 
-    _updateToneStrip() {
+    // Repaint only when something actually changed: set_style() on an
+    // St.Button forces a full CSS re-resolution for that actor, and this used
+    // to run on every keystroke of every search.
+    _updateToneStrip(current = null) {
         if (!this._toneChips) return;
-        const current = this._settings.get_int('emoji-tone');
+        if (current === null) current = this._emoji.tone;
+        if (current === this._toneShown && this._accent === this._toneAccent) return;
+        this._toneShown = current;
+        this._toneAccent = this._accent;
         this._toneChips.forEach((chip, tone) => {
             chip.set_style(tone === current ? `border: 2px solid ${this._accent};` : null);
         });
@@ -1706,7 +1875,7 @@ export class PopupShell {
     _buildTonePop() {
         this._tonePop.remove_all_children();
         const sample = { cp: '1F44B', t: 1 };
-        for (let tone = 0; tone <= 4; tone++) {
+        for (let tone = 0; tone <= 5; tone++) {   // 0 = default, 1..5 = U+1F3FB..U+1F3FF
             const swatch = new St.Button({
                 style_class: 'cliplet-tone-swatch',
                 child: new St.Label({
