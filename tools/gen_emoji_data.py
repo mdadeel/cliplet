@@ -18,13 +18,14 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 # (id, label, rail glyph, ranges) — first matching rule wins.
 CATEGORIES = [
     ("smileys", "Smileys", "😀", [(0x1F600, 0x1F64F), (0x1F900, 0x1F90F), (0x1F920, 0x1F92F),
-                                  (0x1F970, 0x1F97F), (0x263A, 0x263A), (0x2639, 0x2639),
+                                  (0x1F970, 0x1F97F), (0x1F910, 0x1F917), (0x1FAE0, 0x1FAE8),
+                                  (0x263A, 0x263A), (0x2639, 0x2639), (0x2764, 0x2764),
                                   (0x2620, 0x2620), (0x1F47B, 0x1F47B), (0x1F493, 0x1F49F),
                                   (0x1F4A4, 0x1F4AF), (0x1F4AB, 0x1F4AF), (0x1F4AC, 0x1F4AD),
                                   (0x1F440, 0x1F445)]),
     ("people", "People", "👋", [(0x1F466, 0x1F487), (0x1F471, 0x1F47A), (0x1F47C, 0x1F47F),
-                                (0x1F44A, 0x1F450), (0x1F933, 0x1F933),
-                                (0x1F9B0, 0x1F9B9), (0x1F9CD, 0x1F9DF), (0x1F385, 0x1F385),
+                                (0x1F44A, 0x1F450), (0x1F918, 0x1F91F), (0x1FAF0, 0x1FAF8),
+                                (0x1F933, 0x1F933), (0x1F9B0, 0x1F9B9), (0x1F9CD, 0x1F9DF), (0x1F385, 0x1F385),
                                 (0x1F936, 0x1F936), (0x1F574, 0x1F575), (0x1F57A, 0x1F57A),
                                 (0x261D, 0x261D), (0x26D1, 0x26D1), (0x270A, 0x270D)]),
     ("animals", "Animals", "🐻", [(0x1F400, 0x1F43F), (0x1F980, 0x1F9AA), (0x1F9AE, 0x1F9AF),
@@ -34,8 +35,9 @@ CATEGORIES = [
                                   (0x26C8, 0x26C8), (0x2B50, 0x2B50), (0x1F31F, 0x1F320)]),
     ("food", "Food", "🍔", [(0x1F32D, 0x1F37F), (0x1F950, 0x1F9CB), (0x2615, 0x2615),
                             (0x1FAD6, 0x1FAD7)]),
-    ("activities", "Activities", "⚽", [(0x1F380, 0x1F3AF), (0x1F938, 0x1F949), (0x1F94C, 0x1F94F),
-                                        (0x1F3CA, 0x1F3CC), (0x26BD, 0x26BE), (0x26F3, 0x26F3),
+    ("activities", "Activities", "⚽", [(0x1F380, 0x1F3AF), (0x1F3B0, 0x1F3C0),
+                                        (0x1F3C2, 0x1F3C9), (0x2728, 0x2728),
+                                        (0x1F938, 0x1F949), (0x1F94C, 0x1F94F), (0x1F3CA, 0x1F3CC), (0x26BD, 0x26BE), (0x26F3, 0x26F3),
                                         (0x26F7, 0x26F9), (0x1F9AF, 0x1F9AF)]),
     ("travel", "Travel", "🚀", [(0x1F680, 0x1F6FF), (0x1F5FB, 0x1F5FF), (0x1F3D4, 0x1F3D6),
                                 (0x2693, 0x2693), (0x2708, 0x2708), (0x1F9ED, 0x1F9ED),
@@ -153,7 +155,10 @@ def main():
         if unicodedata.category(chr(cp)) in ("Cs", "Co", "Cn"):
             continue
         label = n.lower().replace("_", " ")
-        kw = KEYWORDS.get(cp, "")
+        # Joined to a string: `k` is matched with String.includes at
+        # runtime, and a JS array literal would make that an exact-element
+        # test (the bug that made "lol" miss U+1F602).
+        kw = " ".join(KEYWORDS.get(cp, ()))
         cats[cid]["emoji"].append({
             "cp": f"{cp:X}",
             "n": label,
