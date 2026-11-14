@@ -43,8 +43,12 @@ paste proxy, and no per-app fragility.
 - **Snippets** — user-authored, saved to `~/.config/cliplet/snippets.json`,
   pasted without entering history.
 - **Emoji picker** — categories, search (exact-name ranked above substring),
-  skin tones, recents/favourites, plus kaomoji and symbol extras. Inserts at
-  the cursor on click — Windows behaviour, no double-click needed.
+  all five skin tones, recents/favourites, plus kaomoji and symbol extras.
+  Inserts at the cursor on click — Windows behaviour, no double-click needed.
+  Text is committed through the shell's input method when the target app
+  supports it, so insertion lands in about a frame and **your clipboard is
+  left alone**; apps without text-input support fall back to a clipboard +
+  injected paste chord.
 - **Jot Pad** — always-on-top scratch text with debounced autosave to
   `~/.config/cliplet/jot.txt`.
 - **OCR** — select a screen region, tesseract reads it into history
@@ -74,11 +78,14 @@ is reported with its named owner and a take-over action.
 ```sh
 # from a checkout of this repo
 ln -s "$PWD/extension" ~/.local/share/gnome-shell/extensions/cliplet@review.local
-glib-compile-schemas extension/schemas/
+glib-compile-schemas extension/schemas/     # required — the compiled schema is not committed
 # then: re-login, enable "Cliplet" in the Extensions app
 ```
 
 Requires GNOME Shell 50 (ESM extension, `settings-schema` metadata key).
+`extension/schemas/gschemas.compiled` is a build artefact and is deliberately
+not in git: GNOME Shell loads it as-is and never recompiles it, so a committed
+copy silently overrides the XML the moment the two disagree.
 
 ## Privacy & security
 
@@ -94,6 +101,12 @@ Requires GNOME Shell 50 (ESM extension, `settings-schema` metadata key).
 No — and that is deliberate. GNOME 50 removed the X11 session, and reading
 the clipboard plus pasting into other apps can only be done reliably inside
 the GNOME Shell Wayland process, which is exactly where Cliplet lives.
+
+**Does inserting an emoji overwrite my clipboard?**
+No, not in apps with text-input support: the glyph is committed through the
+shell's input method, the same way GNOME's own on-screen emoji picker does it.
+Apps without text-input (typically X11 clients) fall back to putting the glyph
+on the clipboard and injecting a paste chord.
 
 **Where is my clipboard data stored?**
 In memory, bounded by the history limit. Nothing touches the disk unless
@@ -120,8 +133,37 @@ your machine.
 extension/   the GNOME Shell extension (ESM, gjs) — source of truth
 tools/       python + node pipeline that composes and rasterises the
              design mockups (previews are workspace assets, not shipped)
+tools/test/  dependency-free test + perf harness for the shell-free modules
 assets/      brand art — README logo, social preview card
 ```
+
+## Development
+
+```sh
+node tools/test/run.mjs                  # 52 assertions over emojiModule, store,
+                                         # transforms and the packaging invariants,
+                                         # plus a before/after perf report
+glib-compile-schemas extension/schemas/  # after ANY schema change
+python3 tools/gen_emoji_data.py          # regenerate extension/src/emojiData.js
+                                         # (needs Python ≥ 3.12 for Unicode 15 names)
+```
+
+`emojiModule.js`, `store.js`, `transforms.js`, `snippets.js` and `persist.js`
+keep out of `resource:///` on purpose: the harness stubs `gi://GLib` and
+imports them under plain Node, and it fails on any module that reaches for
+shell internals.
+
+**Timing the shell side.** `extension/src/perf.js` is an opt-in probe — free
+unless `CLIPLET_PERF=1` is in the shell's environment:
+
+```sh
+systemctl --user set-environment CLIPLET_PERF=1   # then log out and back in
+journalctl -f -o cat /usr/bin/gnome-shell | grep 'cliplet:perf'
+```
+
+It reports `popup.open`, `emoji.search`, `emoji.refresh` (entries vs live
+cells) and `insert` with the delivery path actually used
+(`input-method` or `clipboard+chord`) and its latency.
 
 Design-time assets — the mockup SVG/PNG gallery and the research & design
 review docs — are kept out of the repository. Regenerate the gallery
