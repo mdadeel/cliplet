@@ -32,7 +32,7 @@ export default class ClipletExtension extends Extension {
     enable() {
         const settings = this.getSettings();
         this._settings = settings;
-        this._grabSeq = 0;
+        this._grabSeq = new Map();   // id -> retry token (per shortcut!)
 
         // store fires _dirty on every mutation; persistence debounces it
         this._store = new MemoryStore(settings.get_int('history-size'),
@@ -217,13 +217,17 @@ export default class ClipletExtension extends Extension {
         };
 
         // A stale retry never fires because the sequence token moved on.
-        const seq = ++this._grabSeq;
+        // Per-id: a single shared token meant the 'emoji' grab taken right
+        // after the 'clipboard' grab cancelled the clipboard retry chain —
+        // and with it the conflict report, so a held Super+V failed silently.
+        const seq = (this._grabSeq.get(id) || 0) + 1;
+        this._grabSeq.set(id, seq);
         const settle = (result) => {
             if (onSettled) onSettled(accel, result);
             else this._reportGrab(id, accel, result);
         };
         const attempt = (i) => {
-            if (seq !== this._grabSeq) return;
+            if (seq !== this._grabSeq.get(id)) return;
             const result = this._keybindings.grab(id, accel, onActivate);
             if (result.ok || i >= GRAB_RETRY_DELAYS_MS.length) {
                 settle(result);
