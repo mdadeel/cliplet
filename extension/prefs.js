@@ -287,7 +287,7 @@ export default class ClipletPreferences extends ExtensionPreferences {
             model.append(name);
         }
         tone.model = model;
-        // selected maps 0..5; setting is 0..4 with 0 = default (no modifier)
+        // selected maps 0..5 straight onto emoji-tone (0 = default, no modifier)
         tone.set_selected(this._settings.get_int('emoji-tone'));
         tone.connect('notify::selected', () => {
             this._settings.set_int('emoji-tone', tone.selected);
@@ -308,6 +308,8 @@ export default class ClipletPreferences extends ExtensionPreferences {
 
         group.add(this._shortcutRow('Clipboard popup', 'shortcut-clipboard', 'clipboard'));
         group.add(this._shortcutRow('Emoji picker', 'shortcut-emoji', 'emoji'));
+        group.add(this._shortcutRow('OCR (Screen to Text)', 'shortcut-ocr', 'ocr'));
+        group.add(this._shortcutRow('Jot Pad (Scratchpad)', 'shortcut-jot', 'jot'));
         page.add(group);
 
         const presets = new Adw.PreferencesGroup({
@@ -492,7 +494,7 @@ export default class ClipletPreferences extends ExtensionPreferences {
                 dropReleased(this._settings, path);
                 // Releasing ours restores the previous behaviour instantly
                 // (DR-11): the chord goes back to its original owner only.
-                for (const key of ['shortcut-clipboard', 'shortcut-emoji']) {
+                for (const key of ['shortcut-clipboard', 'shortcut-emoji', 'shortcut-ocr', 'shortcut-jot']) {
                     if (this._settings.get_string(key) === binding)
                         this._settings.set_string(key, '');
                 }

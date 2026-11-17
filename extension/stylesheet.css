@@ -291,7 +291,7 @@
     font-weight: 500;
     transition-duration: 120ms;
 }
-.cliplet-rail-glyph { font-size: 20px; font-family: 'Noto Color Emoji'; }
+.cliplet-rail-glyph { font-size: 20px; font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji, sans-serif; }
 .cliplet-dark .cliplet-rail-button  { color: rgba(255, 255, 255, 0.56); }
 .cliplet-light .cliplet-rail-button { color: rgba(0, 0, 0, 0.56); }
 .cliplet-dark .cliplet-rail-button:hover  { background-color: rgba(255, 255, 255, 0.06); }
@@ -307,8 +307,13 @@
     width: 45px; height: 45px;
     border-radius: 8px;
     font-size: 30px;
-    font-family: 'Noto Color Emoji';
+    font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji, sans-serif;
+    border: 2px solid transparent;
+    transition-property: background-color;
     transition-duration: 100ms;
+}
+.cliplet-grid-cell.cliplet-cell-selected {
+    border-color: #3584e4;
 }
 .cliplet-grid-cell-small { font-size: 26px; }
 /* kaomoji / text characters: text font, smaller size, wraps nothing */
@@ -339,14 +344,18 @@
     width: 30px; height: 30px;
     border-radius: 15px;
     font-size: 22px;
-    font-family: 'Noto Color Emoji';
+    font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji, sans-serif;
 }
 /* persistent tone strip at the end of the category rail */
+/* Six chips (default + the five Unicode modifiers) must fit the 520 px panel
+   next to the 11-button category rail: 22 px + 3 px spacing keeps ~15 px of
+   slack instead of overflowing by a pixel. */
 .cliplet-tone-chip {
-    width: 24px; height: 24px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-family: 'Noto Color Emoji';
+    width: 22px; height: 22px;
+    border-radius: 11px;
+    font-size: 14px;
+    font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', emoji, sans-serif;
+    transition-property: background-color;
     transition-duration: 100ms;
 }
 .cliplet-dark .cliplet-tone-chip  { background-color: rgba(255, 255, 255, 0.08); }
