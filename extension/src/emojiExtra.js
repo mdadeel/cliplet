@@ -8,7 +8,10 @@
 // exactly like real emoji.
 
 const e = (s, n, k) => ({
-    cp: [...s].map((c) => c.codePointAt(0).toString(16)).join('-'),
+    // Uppercase hex, exactly like tools/gen_emoji_data.py emits: `cp` is the
+    // identity used by recents, favourites and the dedupe below, and a
+    // case mismatch gave the same character two identities.
+    cp: [...s].map((c) => c.codePointAt(0).toString(16).toUpperCase()).join('-'),
     n,
     k: Array.isArray(k) ? k.join(' ') : k,
     t: 0,

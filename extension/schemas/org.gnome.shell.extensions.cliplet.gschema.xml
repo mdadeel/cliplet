@@ -35,8 +35,9 @@
     </key>
     <key name="emoji-tone" type="i">
       <default>0</default>
-      <summary>Preferred skin tone, 0 (none) to 4 (darkest)</summary>
-      <range min="0" max="4"/>
+      <summary>Preferred skin tone: 0 (none) to 5 (darkest)</summary>
+      <description>Indexes the five Unicode skin-tone modifiers U+1F3FB..U+1F3FF. The range used to stop at 4, so the darkest modifier could never be stored and Preferences' "Dark" row silently did nothing.</description>
+      <range min="0" max="5"/>
     </key>
     <key name="emoji-auto-insert" type="b">
       <default>true</default>
