@@ -102,6 +102,9 @@ export class ClipboardCapture {
         if (type !== Meta.SelectionType.SELECTION_CLIPBOARD) return;
         if (this._settings.get_boolean('pause-capture')) return;
 
+        this._currentApp = this._sourceAppName();
+        this._currentId = this._sourceAppId();
+
         // Coalesce: reset the debounce window instead of queueing (§05 P1).
         if (this._debounceId) GLib.source_remove(this._debounceId);
         this._debounceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, DEBOUNCE_MS, () => {
@@ -269,15 +272,17 @@ export class ClipboardCapture {
             this._suppressOwnSet = false;
             return;
         }
-        const app = this._sourceAppName();
-        if (this._isExcluded(app)) {
+        const app = this._currentApp || this._sourceAppName();
+        const appId = this._currentId || this._sourceAppId();
+        if (this._isExcluded(app, appId)) {
             this._capturedSinceHint = true;
             return;
         }
         const mime = mimes.find((m) => m.startsWith('image/')) || 'image/png';
 
         if (this._multicopy && this._multicopy.collecting) {
-            this._multicopy.queue.push({ text: '', app, time: Date.now(), masked: false, truncated: false, kind: 'image', bytes, mime });
+            const nextId = (this._store?._nextId) ? this._store._nextId++ : Date.now();
+            this._multicopy.queue.push({ _id: nextId, text: '', app, time: Date.now(), masked: false, truncated: false, kind: 'image', bytes, mime });
             this._capturedSinceHint = true;
             this._onChanged(null);
             return;
@@ -305,11 +310,12 @@ export class ClipboardCapture {
     _onText(text) {
         if (text === null || text === undefined || text.length === 0) return;
 
-        const app = this._sourceAppName();
+        const app = this._currentApp || this._sourceAppName();
+        const appId = this._currentId || this._sourceAppId();
 
         // App exclusions (docs/15 §1.3, hardened §2.6): matched against the
         // app NAME and its desktop app-ID — before anything touches the text.
-        if (this._isExcluded(app)) {
+        if (this._isExcluded(app, appId)) {
             this._capturedSinceHint = true;
             return;
         }
@@ -317,7 +323,14 @@ export class ClipboardCapture {
         const cap = this._settings.get_int('text-cap-kb') * 1024;
         let truncated = false;
         if (text.length > cap) {
-            text = text.slice(0, cap);
+            let end = cap;
+            if (end > 0 && end < text.length) {
+                const code = text.charCodeAt(end - 1);
+                if (code >= 0xD800 && code <= 0xDBFF) {
+                    end--; // don't split surrogate pair
+                }
+            }
+            text = text.slice(0, end);
             truncated = true;
         }
 
@@ -345,7 +358,8 @@ export class ClipboardCapture {
         // MultiCopy: while collecting, copies join the queue instead of the
         // history. The queue is merged on stop or pasted as one joined text.
         if (this._multicopy && this._multicopy.collecting) {
-            this._multicopy.queue.push({ text, app, time: Date.now(), masked, truncated });
+            const nextId = (this._store?._nextId) ? this._store._nextId++ : Date.now();
+            this._multicopy.queue.push({ _id: nextId, text, app, time: Date.now(), masked, truncated });
             this._capturedSinceHint = true;
             this._onChanged(null);
             return;
@@ -390,8 +404,8 @@ export class ClipboardCapture {
 
     // Substring match on app name OR desktop app-id (§2.6: ids are stable
     // even when the display name is localized).
-    _isExcluded(appName) {
-        const id = this._sourceAppId();
+    _isExcluded(appName, appId = '') {
+        const id = appId || this._sourceAppId();
         return this._settings.get_strv('excluded-apps')
             .some((e) => {
                 if (!e) return false;

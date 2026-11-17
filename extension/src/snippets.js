@@ -13,6 +13,7 @@ export class Snippets {
         const dir = GLib.build_filenamev([GLib.get_user_config_dir(), 'cliplet']);
         this._path = GLib.build_filenamev([dir, 'snippets.json']);
         this._entries = [];
+        this._loadedMtime = -1;
         this._load();
     }
 
@@ -21,13 +22,32 @@ export class Snippets {
     }
 
     _load() {
+        // Guarded by mtime: the popup calls search() on every keystroke, and
+        // the prefs window (a separate process) is the only other writer —
+        // re-reading and re-parsing the file per keypress was a synchronous
+        // disk read in the shell's main loop for nothing.
+        try {
+            const info = Gio.File.new_for_path(this._path).query_info(
+                'time::modified', Gio.FileQueryInfoFlags.NONE, null);
+            const mtime = info.get_modification_date_time().to_unix();
+            if (this._loadedMtime === mtime)
+                return;
+            this._loadedMtime = mtime;
+        } catch {
+            // missing/unreadable file: keep what we have and try again later
+            return;
+        }
         try {
             const [, bytes] = GLib.file_get_contents(this._path);
             const parsed = JSON.parse(new TextDecoder().decode(bytes));
             if (Array.isArray(parsed)) {
                 this._entries = parsed
                     .filter((s) => s && typeof s.name === 'string' && typeof s.text === 'string')
-                    .map((s) => ({ name: s.name, text: s.text }));
+                    .map((s) => ({
+                        name: s.name,
+                        text: s.text,
+                        _hay: `${s.name}\n${s.text}`.toLowerCase(),
+                    }));
             }
         } catch {
             this._entries = [];   // missing or corrupt file — start empty
@@ -38,7 +58,7 @@ export class Snippets {
         try {
             const dir = Gio.File.new_for_path(GLib.path_get_dirname(this._path));
             try { dir.make_directory_with_parents(null); } catch { /* exists */ }
-            const json = JSON.stringify(this._entries, null, 2);
+            const json = JSON.stringify(this._entries.map((s) => ({ name: s.name, text: s.text })), null, 2);
             GLib.file_set_contents(this._path, json);
         } catch (e) {
             console.warn(`[cliplet] snippet save failed: ${e.message}`);
@@ -47,7 +67,7 @@ export class Snippets {
 
     list() {
         this._load();   // cross-process: prefs may have edited the file
-        return this._entries.map((s) => ({ ...s }));
+        return this._entries.map((s) => ({ name: s.name, text: s.text }));
     }
 
     // Insert-or-update by name (names are the identity for the prefs editor).
@@ -57,8 +77,13 @@ export class Snippets {
         const existing = this._entries.find((s) => s.name === trimmed);
         if (existing) {
             existing.text = text;
+            existing._hay = `${existing.name}\n${text}`.toLowerCase();
         } else {
-            this._entries.push({ name: trimmed, text });
+            this._entries.push({
+                name: trimmed,
+                text,
+                _hay: `${trimmed}\n${text}`.toLowerCase(),
+            });
         }
         this._save();
         return trimmed;
@@ -72,13 +97,12 @@ export class Snippets {
 
     // Tokens matched against name + text, same style as the history search.
     search(query) {
-        this._load();   // cross-process: prefs may have edited the file
         const q = query.trim().toLowerCase();
-        if (!q) return this.list();
+        this._load();
+        if (!q) return this._entries.map((s) => ({ name: s.name, text: s.text }));
         const tokens = q.split(/\s+/);
-        return this.list().filter((s) => {
-            const hay = (s.name + '\n' + s.text).toLowerCase();
-            return tokens.every((t) => hay.includes(t));
-        });
+        return this._entries
+            .filter((s) => tokens.every((t) => (s._hay || `${s.name}\n${s.text}`).includes(t)))
+            .map((s) => ({ name: s.name, text: s.text }));
     }
 }

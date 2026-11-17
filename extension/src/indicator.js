@@ -84,7 +84,7 @@ class ClipletIndicator extends PanelMenu.Button {
     _updateIcon() {
         this._icon.icon_name = this._settings.get_boolean('pause-capture')
             ? 'media-playback-pause-symbolic'
-            : 'edit-paste-symbolic';
+            : 'cliplet-symbolic';
     }
 
     destroy() {

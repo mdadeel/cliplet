@@ -71,7 +71,12 @@ export class HistoryPersist {
         try {
             const dir = Gio.File.new_for_path(GLib.path_get_dirname(this._path));
             try { dir.make_directory_with_parents(null); } catch { /* exists */ }
-            GLib.file_set_contents(this._path, JSON.stringify({ version: 1, entries }));
+            const file = Gio.File.new_for_path(this._path);
+            const json = JSON.stringify({ version: 1, entries });
+            const bytes = new GLib.Bytes(new TextEncoder().encode(json));
+            file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.NONE, null, (f, res) => {
+                try { f.replace_contents_finish(res); } catch { /* ignore */ }
+            });
         } catch (e) {
             console.warn(`[cliplet] history save failed: ${e.message}`);
         }
@@ -94,6 +99,7 @@ export class HistoryPersist {
         if (this._debounceId) {
             GLib.source_remove(this._debounceId);
             this._debounceId = 0;
+            this.save();
         }
     }
 }

@@ -63,10 +63,26 @@ export class JotPad {
 
     _show() {
         if (!this._actor) this._build();
+        this._applyTheme();
         this._actor.show();
     }
 
+    _applyTheme() {
+        if (!this._actor) return;
+        const scheme = this._iface?.get_string('color-scheme');
+        const dark = scheme === 'prefer-dark';
+        this._actor.style_class = `cliplet-shell ${dark ? 'cliplet-dark' : 'cliplet-light'}`;
+        if (this._clutterText) {
+            this._clutterText.color = dark
+                ? new Clutter.Color({ red: 255, green: 255, blue: 255, alpha: 255 })
+                : new Clutter.Color({ red: 26, green: 26, blue: 26, alpha: 255 });
+        }
+    }
+
     _build() {
+        this._iface = Gio.Settings.new('org.gnome.desktop.interface');
+        this._themeChangedId = this._iface.connect('changed::color-scheme', () => this._applyTheme());
+
         const monitor = Main.layoutManager.primaryMonitor;
         this._actor = new St.BoxLayout({
             vertical: true,
@@ -110,10 +126,11 @@ export class JotPad {
             line_wrap: true,
             line_wrap_mode: 2,      // Pango.WrapMode.WORD_CHAR
             activatable: false,
+            x_expand: true,
+            y_expand: true,
         });
         frame.add_child(this._clutterText);
-        this._clutterText.set_position(8, 8);
-        this._clutterText.set_size(344, 240);
+        this._applyTheme();
 
         Main.layoutManager.uiGroup.add_child(this._actor);
 
@@ -143,23 +160,37 @@ export class JotPad {
             if (this._saveId) GLib.source_remove(this._saveId);
             this._saveId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
                 this._saveId = 0;
-                this._text = this._clutterText.text;
-                try {
-                    const dir = Gio.File.new_for_path(GLib.path_get_dirname(this._path));
-                    try { dir.make_directory_with_parents(null); } catch { /* exists */ }
-                    GLib.file_set_contents(this._path, this._text);
-                } catch (e) {
-                    console.warn(`[cliplet] jot save failed: ${e.message}`);
-                }
+                this._flushSave();
                 return GLib.SOURCE_REMOVE;
             });
         });
+    }
+
+    _flushSave() {
+        if (!this._clutterText) return;
+        this._text = this._clutterText.text;
+        try {
+            const dir = Gio.File.new_for_path(GLib.path_get_dirname(this._path));
+            try { dir.make_directory_with_parents(null); } catch { /* exists */ }
+            const file = Gio.File.new_for_path(this._path);
+            const bytes = new GLib.Bytes(new TextEncoder().encode(this._text));
+            file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.NONE, null, (f, res) => {
+                try { f.replace_contents_finish(res); } catch { /* ignore */ }
+            });
+        } catch (e) {
+            console.warn(`[cliplet] jot save failed: ${e.message}`);
+        }
     }
 
     destroy() {
         if (this._saveId) {
             GLib.source_remove(this._saveId);
             this._saveId = 0;
+            this._flushSave();
+        }
+        if (this._themeChangedId) {
+            this._iface?.disconnect(this._themeChangedId);
+            this._themeChangedId = 0;
         }
         this._actor?.destroy();
         this._actor = null;

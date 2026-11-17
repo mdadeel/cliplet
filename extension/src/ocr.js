@@ -66,10 +66,16 @@ export class Ocr {
         }
         if (this._root) return;   // selection already running
 
-        const monitor = Main.layoutManager.primaryMonitor;
+        let monitor = Main.layoutManager.primaryMonitor;
+        try {
+            const idx = global.display.get_current_monitor();
+            monitor = Main.layoutManager.monitors[idx] || monitor;
+        } catch { /* use primary */ }
+
         this._root = new OcrSelector({
             reactive: true,
             x: monitor.x, y: monitor.y,
+            width: monitor.width, height: monitor.height,
             style: 'background-color: rgba(0,0,0,0.25);',
         });
         this._rect = new St.Widget({

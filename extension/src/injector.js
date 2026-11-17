@@ -11,6 +11,10 @@ import St from 'gi://St';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+import { perf } from './perf.js';
+
 // Chord keyvals. notify_keyval (not notify_key/evdev): the evdev path
 // reaches mutter's own keybindings but demonstrably never arrives at
 // Wayland clients on this build — the paste lands only via keyvals.
@@ -25,9 +29,20 @@ const TERMINAL_HINTS = [
     'terminator', 'tilix', 'guake', 'st-256color',
 ];
 
-const FOCUS_DELAY_MS = 250;          // grace after the grab is released
 const FOCUS_RETRIES_MS = [250, 550, 850]; // focus restore can lag the grab release
 const MODIFIER_RELEASE_CAP_MS = 600; // S28: never wait longer than this
+
+// Text delivery, fast path. GNOME's own emoji picker commits through the
+// shell input method (js/ui/keyboard.js -> Main.inputMethod.commit): the
+// glyph lands in the focused client on the next frame and the clipboard is
+// never touched. Cliplet's chord path instead waits a fixed 250 ms grace
+// after the modal grab releases before it injects Ctrl+V — that constant is
+// most of the "the emoji appears slowly" gap against Windows and macOS, both
+// of which commit text directly. Poll one frame at a time for text focus to
+// come back, then commit; apps with no text-input support (X11 clients, and
+// Wayland apps without text-input-v3/IBus) fall through to the chord path.
+const IM_POLL_MS = 16;
+const IM_BUDGET_MS = 180;
 
 export class Injector {
     constructor({ capture, onFallback }) {
@@ -35,6 +50,7 @@ export class Injector {
         this._onFallback = onFallback;   // (message) => quiet notification
         this._device = null;
         this._pendingId = 0;
+        this._imId = 0;
     }
 
     enable() {
@@ -45,11 +61,23 @@ export class Injector {
     }
 
     disable() {
+        this._cancelPending();
+        this._device = null;
+    }
+
+    // A superseded delivery must never fire: the old code overwrote
+    // `_pendingId` without removing the previous source, so two inserts
+    // inside the focus grace window injected two chords (and the second one
+    // pasted whatever the first had left on the clipboard).
+    _cancelPending() {
         if (this._pendingId) {
             GLib.source_remove(this._pendingId);
             this._pendingId = 0;
         }
-        this._device = null;
+        if (this._imId) {
+            GLib.source_remove(this._imId);
+            this._imId = 0;
+        }
     }
 
     // Snapshot of the target the popup promises to deliver to.
@@ -85,20 +113,76 @@ export class Injector {
         return TERMINAL_HINTS.some((t) => hay.includes(t));
     }
 
-    // Put the entry on the clipboard and inject the paste chord into the
-    // recorded target. The guard runs at the last possible moment — and
-    // tolerates a lagging focus restore: window managers do not always
-    // refocus within the first grace window after a modal grab releases,
-    // so give it a few chances before refusing (still never typing into
-    // the wrong window).
+    // Deliver an entry to the window that had focus when the popup opened.
+    // Text goes out through the input method when one is available (fast,
+    // clipboard untouched); everything else — images, and apps with no
+    // text-input support — goes out as clipboard + an injected chord.
     paste(entry, recorded) {
         const isImage = entry.kind === 'image';
+        const isEmoji = !!entry.isEmoji;
+        perf.start('insert');
+        this._cancelPending();
         if (!this._device || !recorded || !recorded.hasWindow) {
             this._capture.markInternalSet();
             this._setClipboard(entry);
             this._onFallback('Copied — no focused window to paste into.');
             return;
         }
+        // Non-emoji entries (clipboard history / MultiCopy) must populate
+        // the system clipboard so subsequent Ctrl+V repeats the chosen clip.
+        if (!isEmoji) {
+            this._capture.markInternalSet();
+            this._setClipboard(entry);
+        }
+        const textLen = (entry.text && typeof entry.text === 'string') ? entry.text.length : 0;
+        if (!isImage && textLen > 0 && textLen <= 4096 && this._commitViaInputMethod(entry.text, recorded, entry))
+            return;
+        this._pasteViaChord(entry, recorded);
+    }
+
+    // Fast path: commit the text through the shell's input method. Returns
+    // true when it owns delivery (including the bounded poll that decides),
+    // false when this shell/app has no input method to commit through.
+    _commitViaInputMethod(text, recorded, fallbackEntry = null) {
+        const im = Main.inputMethod;
+        if (!im || typeof im.commit !== 'function')
+            return false;
+
+        const deadline = GLib.get_monotonic_time() + (IM_BUDGET_MS * 1000);
+        this._imId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, IM_POLL_MS, () => {
+            if (this._imFocusReady(im, recorded)) {
+                this._imId = 0;
+                im.commit(text);          // no clipboard write for emoji, no chord
+                perf.end('insert', 'path=input-method');
+                return GLib.SOURCE_REMOVE;
+            }
+            if (GLib.get_monotonic_time() >= deadline) {
+                this._imId = 0;
+                this._pasteViaChord(fallbackEntry || { kind: 'text', text }, recorded);
+                return GLib.SOURCE_REMOVE;
+            }
+            return GLib.SOURCE_KEEP;
+        });
+        return true;
+    }
+
+    // Commit only once text focus is back on the recorded window: while our
+    // own search entry still owns it, a commit would type the glyph into the
+    // (already hidden) popup instead of the user's document.
+    _imFocusReady(im, recorded) {
+        if (!im.currentFocus) return false;          // no text-input client
+        if (global.stage.key_focus) return false;    // a shell actor has keys
+        return this.focusMatches(recorded);
+    }
+
+    // Fallback path: put the entry on the clipboard and inject the paste
+    // chord into the recorded target. The guard runs at the last possible
+    // moment — and tolerates a lagging focus restore: window managers do not
+    // always refocus within the first grace window after a modal grab
+    // releases, so give it a few chances before refusing (still never typing
+    // into the wrong window).
+    _pasteViaChord(entry, recorded) {
+        const isImage = entry.kind === 'image';
         this._capture.markInternalSet();
         this._setClipboard(entry);
 
@@ -114,6 +198,7 @@ export class Injector {
             if (this.focusMatches(recorded)) {
                 this._pendingId = 0;
                 this._inject(chord);
+                perf.end('insert', 'path=clipboard+chord');
                 return;
             }
             if (i + 1 < FOCUS_RETRIES_MS.length) {
